@@ -2,6 +2,14 @@
 
 Implementação do desafio em React 19 + TypeScript, com Vite, TanStack Router/Query, Axios, Tailwind CSS 4, componentes shadcn/ui (Radix + CVA), MSW e Socket.IO. A experiência inteira é demonstrativa: nenhuma conexão com blockchain, extensão de carteira, pagamento ou credencial real.
 
+### Homologação
+
+Acesse a versão publicada do KURIO para testar a aplicação diretamente pelo navegador, sem precisar instalar dependências:
+
+**[Acessar KURIO — Ambiente de Homologação](https://kurio-frontend-desafio.vercel.app/)**
+
+O ambiente utiliza dados simulados com MSW. Não é necessário conectar uma carteira real nem realizar pagamentos.
+
 ## Executar
 
 Requer Node.js 22.19 ou superior e npm. Em um checkout limpo:
