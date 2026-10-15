@@ -15,7 +15,7 @@ export function Empty({
   return (
     <section className="empty">
       <PackageOpen size={40} strokeWidth={1} />
-      <h1>{title}</h1>
+      <h1 aria-label={title}>{title}</h1>
       <p className="muted">{description}</p>
       {children ?? (
         <Button asChild>
@@ -91,7 +91,7 @@ export function PageTitle({
   return (
     <header className="page-title">
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <h1>{title}</h1>
+      <h1 aria-label={title}>{title}</h1>
       {description && <p className="muted">{description}</p>}
     </header>
   );

@@ -5,7 +5,7 @@ import {
   type CartLine,
   type Wallet,
   type User,
-} from "../domain";
+} from "../../domain";
 import {
   cart,
   currentUser,
@@ -189,6 +189,12 @@ export const handlers = [
     return json({ ok: true });
   }),
   route("get", "/nfts", ({ request }) => {
+    if (getDB().scenario === "invalid-catalog")
+      return json({ total: 0, pages: 1 });
+    if (getDB().scenario === "invalid-response")
+      return HttpResponse.html(
+        "<!doctype html><title>Resposta inesperada</title>",
+      );
     const p = new URL(request.url).searchParams;
     let list = [...getDB().nfts];
     if (getDB().scenario === "empty") list = [];
@@ -331,6 +337,10 @@ export const handlers = [
         network: string;
         name: string;
         email: string;
+        provider?: string;
+        username?: string;
+        profileName?: string;
+        note?: string;
       };
       const key = request.headers.get("Idempotency-Key");
       if (!key) return error("Chave de idempotência obrigatória.", 422);
@@ -346,6 +356,19 @@ export const handlers = [
       const wallet = currentUser()!.wallets.find((w) => w.id === b.walletId);
       if (!wallet || wallet.network !== b.network)
         return error("Selecione uma carteira compatível com a rede.", 422);
+      if (
+        b.provider &&
+        !["WalletConnect", "MetaMask", "Coinbase Wallet"].includes(b.provider)
+      )
+        return error("Selecione um método de pagamento disponível.", 422);
+
+      if (
+        b.username === undefined ||
+        (b.profileName !== undefined && b.profileName.trim().length < 2)
+      ) {
+        return error("Confira os dados do perfil do colecionador.", 422);
+      }
+
       const previous = db.quotes[b.quoteId];
       if (!previous || previous.expiresAt < Date.now())
         return error("A cotação expirou. Revise os valores novamente.", 409);
@@ -377,6 +400,12 @@ export const handlers = [
         version: 1,
         transaction: `0x${crypto.randomUUID().replaceAll("-", "")}`,
         createdAt: new Date().toISOString(),
+        payment: {
+          provider: b.provider ?? "WalletConnect",
+          network: b.network,
+          walletLabel: wallet.label,
+          walletAddress: wallet.address,
+        },
       };
       db.orders.push(order);
       db.attempts[`${order.userId}:${key}`] = {
@@ -484,10 +513,57 @@ export const handlers = [
   route("get", "/wallets", () => json(currentUser()!.wallets), true),
   route(
     "post",
+    "/wallets/connection",
+    async ({ request }) => {
+      const body = (await request.json()) as {
+        walletId: string;
+        network: string;
+        provider: string;
+        decision: string;
+      };
+      const wallet = currentUser()!.wallets.find(
+        (item) => item.id === body.walletId,
+      );
+      if (!wallet || wallet.network !== body.network)
+        return error(
+          "A rede selecionada deve corresponder à rede da carteira.",
+          422,
+        );
+      if (
+        !["WalletConnect", "MetaMask", "Coinbase Wallet"].includes(
+          body.provider,
+        ) ||
+        !["connect", "decline", "disconnect"].includes(body.decision)
+      )
+        return error("Método de conexão inválido.", 422);
+      return json({
+        status:
+          body.decision === "connect"
+            ? "connected"
+            : body.decision === "decline"
+              ? "declined"
+              : "idle",
+        provider: body.provider,
+      });
+    },
+    true,
+  ),
+  route(
+    "post",
     "/wallets",
     async ({ request }) => {
       const b = (await request.json()) as Wallet;
       const u = currentUser()!;
+      if (
+        (b.displayName !== undefined && b.displayName.trim().length < 2) ||
+        (b.profileName !== undefined && b.profileName.trim().length < 2) ||
+        (b.email !== undefined && !/^\S+@\S+\.\S+$/.test(b.email)) ||
+        (b.provider !== undefined &&
+          !["WalletConnect", "MetaMask", "Coinbase Wallet"].includes(
+            b.provider,
+          ))
+      )
+        return error("Confira nome, perfil, e-mail e tipo de carteira.", 422);
       if (
         !b.label?.trim() ||
         !/^0x[a-fA-F0-9]{40}$/.test(b.address) ||
